@@ -1,0 +1,25 @@
+{
+  "name": "48gprotein",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build:client": "bun build core/internal/client.tsx --outdir dist/client --minify",
+    "build:server": "bun build core/internal/server.ts --outdir dist/server --target=bun --minify",
+    "build": "bun run build:client && bun run build:server",
+    "dev": "bun run build:client --watch & bun run build:server --watch & bun run --watch dist/server/server.js",
+    "start": "bun dist/server/server.js"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react-dom": "^19.2.3",
+    "@types/web": "^0.0.294"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}
