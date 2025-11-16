@@ -1,4 +1,4 @@
-# 48gprotein
+# Mini Stack
 
 To install dependencies:
 
