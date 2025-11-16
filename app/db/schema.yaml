@@ -25,13 +25,3 @@ models:
     indexes:
       - fields: [email]
       - fields: [username]
-  Food:
-    table: food
-    fields:
-      id:
-        type: integer
-        primaryKey: true
-        autoIncrement: true
-      foodName:
-        type: string
-        nullable: false
