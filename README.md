@@ -1,15 +1,21 @@
 # Mini Stack
 
+### Get Started
+
+To make a project with this template locally
+
+```bash
+bunx degit johngthecreator/mini-stack my-app
+```
+
 To install dependencies:
 
 ```bash
 bun install
 ```
 
-To run:
+To run dev server:
 
 ```bash
-bun run index.ts
+bun run dev
 ```
-
-This project was created using `bun init` in bun v1.3.2. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
