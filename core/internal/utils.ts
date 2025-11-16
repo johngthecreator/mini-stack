@@ -7,6 +7,21 @@ const TOKEN_EXPIRY_SECONDS = 3600;
 const JWT_SECRET = "your_strong_and_secure_secret_key";
 const TOKEN_COOKIE_NAME = "token";
 
+export type HTTPMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+type LoaderFunction = (
+  req: BunRequest
+) => Promise<Response | {}> | Response | {};
+
+type ApiHandler = (req: BunRequest) => Promise<Response> | Response;
+
+export interface Route {
+  path: string;
+  view?: any; // Component type, adjust as needed
+  loader?: LoaderFunction;
+  api?: Partial<Record<HTTPMethod, ApiHandler>>;
+}
+
 interface JWTPayload {
   userId: number;
   email: string;
@@ -96,7 +111,7 @@ export async function verifyJWT(token: string, secret: string) {
   }
 }
 
-function parseCookies(req: BunRequest): Record<string, string> {
+export function parseCookies(req: BunRequest): Record<string, string> {
   const cookieHeader = req.headers.get("Cookie");
   if (!cookieHeader) return {};
 
@@ -115,6 +130,35 @@ export function authLoader<T>(
 ) {
   return async (req: BunRequest): Promise<T | Response> => {
     const token = parseCookies(req)[TOKEN_COOKIE_NAME];
+    const url = new URL(req.url);
+
+    if (url.pathname === "/login" || url.pathname === "/signup") {
+      if (token) {
+        try {
+          const decodedPayload = (await verifyJWT(
+            token,
+            JWT_SECRET
+          )) as DecodedPayload | null;
+          const now = Math.floor(Date.now() / 1000);
+          if (
+            decodedPayload &&
+            decodedPayload.exp &&
+            decodedPayload.exp > now
+          ) {
+            return new Response(null, {
+              status: 302,
+              headers: { Location: "/" },
+            });
+          }
+        } catch {
+          return new Response(null, {
+            status: 302,
+            headers: { Location: "/login" },
+          });
+        }
+      }
+      return loader(req, null as any);
+    }
 
     if (!token) {
       return new Response(null, {
@@ -215,6 +259,16 @@ export async function loginUser(
     headers: {
       Location: "/",
       "Set-Cookie": `token=${token}; HttpOnly; Path=/; Max-Age=${maxAge}; SameSite=Lax`,
+    },
+  });
+}
+
+export function signOutUser() {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: "/login",
+      "Set-Cookie": `token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`,
     },
   });
 }

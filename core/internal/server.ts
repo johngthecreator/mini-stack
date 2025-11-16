@@ -1,7 +1,13 @@
 import type { BunRequest } from "bun";
 import { extname } from "path";
 import { routes } from "@/app/routes";
-import { createTables, hasChanged, loadPrevious, saveNew } from "./utils";
+import {
+  createTables,
+  hasChanged,
+  loadPrevious,
+  saveNew,
+  type HTTPMethod,
+} from "./utils";
 
 const mimeTypes: Record<string, string> = {
   ".js": "application/javascript",
@@ -9,7 +15,7 @@ const mimeTypes: Record<string, string> = {
   ".html": "text/html",
 };
 
-const template = await Bun.file("./index.html").text();
+const template = await Bun.file("./public/index.html").text();
 
 const models = await Bun.file("./app/db/schema.yaml").text();
 
@@ -47,20 +53,23 @@ Bun.serve({
       return new Response("Not Found", { status: 404 });
     }
 
-    if (route.api) {
-      return route.api(req);
+    const method = req.method as HTTPMethod;
+    if (route.api && typeof route.api === "object") {
+      const handler = route.api[method];
+      if (handler) {
+        return handler(req);
+      } else {
+        return new Response("Method Not Allowed", { status: 405 });
+      }
     }
 
-    // Load data via loader if present
     let props = {};
     if (route.loader) {
       const result = await route.loader(req);
-      // Support passing a Response directly (redirect, error)
       if (result instanceof Response) return result;
       props = result;
     }
 
-    // Server render React component for the route
     const React = require("react");
     const ReactDOMServer = require("react-dom/server");
     const htmlContent = ReactDOMServer.renderToString(

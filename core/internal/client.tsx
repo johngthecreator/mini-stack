@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { routes } from "@/app/pages/routes";
+import "./tailwind.min.css";
 
 function App() {
   const [path, setPath] = React.useState(window.location.pathname);

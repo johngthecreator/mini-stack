@@ -6,10 +6,12 @@ export default function About({
   loaderData: { message: string };
 }) {
   return (
-    <div>
+    <>
       <Navbar />
-      <h1>About Page</h1>
-      {loaderData?.message}
-    </div>
+      <div className="px-5 flex flex-col gap-3">
+        <h1>About Page</h1>
+        <p>{loaderData?.message}</p>
+      </div>
+    </>
   );
 }

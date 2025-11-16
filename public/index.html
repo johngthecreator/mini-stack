@@ -1,14 +1,11 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
-    />
+    <link rel="stylesheet" href="dist/client/client.css" />
     <title>My App</title>
   </head>
   <body>
-    <div class="container" id="root">{{SSR_CONTENT}}</div>
+    <div id="root">{{SSR_CONTENT}}</div>
     <script src="dist/client/client.js"></script>
     <script id="loader-data" type="application/json">
       {{LOADER_DATA}}
