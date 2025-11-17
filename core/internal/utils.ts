@@ -275,6 +275,13 @@ export function signOutUser() {
 
 // DB
 
+interface ForeignKeyDefinition {
+  table: string;
+  column?: string;
+  onDelete?: "CASCADE" | "SET NULL" | "RESTRICT" | "NO ACTION";
+  onUpdate?: "CASCADE" | "SET NULL" | "RESTRICT" | "NO ACTION";
+}
+
 interface FieldDefinition {
   type: string;
   primaryKey?: boolean;
@@ -284,6 +291,7 @@ interface FieldDefinition {
   maxLength?: number;
   default?: string | number;
   onUpdate?: string;
+  references?: ForeignKeyDefinition;
 }
 
 interface IndexDefinition {
@@ -293,6 +301,7 @@ interface IndexDefinition {
 interface ModelDefinition {
   table: string;
   fields: Record<string, FieldDefinition>;
+  primaryKey?: string[]; // Add composite primary key support here
   indexes?: IndexDefinition[];
 }
 
@@ -325,26 +334,28 @@ function mapJsonTypeToSql(type: string): string {
 export function generateSqlSchema(schema: SchemaInput): string[] {
   const allStatements: string[] = [];
 
-  // Loop through each model defined in the schema (e.g., "User")
   for (const modelName in schema.models) {
     const model = schema.models[modelName];
     const tableName = model?.table;
+
+    // Drop existing table
     const query = db.query(`DROP TABLE IF EXISTS ${tableName}`);
     query.run();
 
     const columnDefinitions: string[] = [];
 
-    // Loop 1: Process all fields for this model (e.g., "id", "email")
+    // Create a Set of composite primary key columns, if any
+    const compositePrimaryKeys = new Set(model?.primaryKey ?? []);
+
     for (const fieldName in model?.fields) {
       const field = model.fields[fieldName];
 
-      // Start building the column definition
       let columnSql = `  "${fieldName}" ${mapJsonTypeToSql(
         (field as FieldDefinition).type
       )}`;
 
-      // Add constraints
-      if (field?.primaryKey) {
+      // Only add inline PRIMARY KEY if not part of composite primary key
+      if (field?.primaryKey && compositePrimaryKeys.size === 0) {
         columnSql += " PRIMARY KEY";
         if (field?.autoIncrement) {
           columnSql += " AUTOINCREMENT";
@@ -359,21 +370,28 @@ export function generateSqlSchema(schema: SchemaInput): string[] {
         columnSql += " UNIQUE";
       }
 
-      // Handle default values
       if (field?.default !== undefined) {
         if (field.default === "now") {
-          // SQLite uses CURRENT_TIMESTAMP
           columnSql += " DEFAULT CURRENT_TIMESTAMP";
         } else if (typeof field.default === "string") {
-          // Escape single quotes for SQL
           columnSql += ` DEFAULT '${field.default.replace(/'/g, "''")}'`;
         } else {
-          // Numbers (e.g., 0 for boolean)
           columnSql += ` DEFAULT ${field.default}`;
         }
       }
 
-      // Handle onUpdate (requires a trigger in SQLite)
+      if (field?.references) {
+        const ref = field.references;
+        const refColumn = ref.column ?? "id";
+        columnSql += ` REFERENCES "${ref.table}"("${refColumn}")`;
+        if (ref.onDelete) {
+          columnSql += ` ON DELETE ${ref.onDelete}`;
+        }
+        if (ref.onUpdate) {
+          columnSql += ` ON UPDATE ${ref.onUpdate}`;
+        }
+      }
+
       if (field?.onUpdate === "now") {
         columnSql +=
           " /* ON UPDATE CURRENT_TIMESTAMP (requires trigger in SQLite) */";
@@ -382,37 +400,35 @@ export function generateSqlSchema(schema: SchemaInput): string[] {
       columnDefinitions.push(columnSql);
     }
 
-    // Assemble and add the CREATE TABLE statement
+    // Append table-level composite primary key declaration, if defined
+    if (compositePrimaryKeys.size > 0) {
+      const cols = Array.from(compositePrimaryKeys).map((col) => `"${col}"`);
+      columnDefinitions.push(`PRIMARY KEY (${cols.join(", ")})`);
+    }
+
     const createTableSql = `CREATE TABLE "${tableName}" (\n${columnDefinitions.join(
       ",\n"
     )}\n);`;
+
     allStatements.push(createTableSql);
 
-    // Loop 2: Process table-level indexes as separate statements
+    // Create indexes skipping those redundant with UNIQUE
     if (model?.indexes) {
       for (const index of model.indexes) {
-        // Check if this index is redundant (already covered by `unique: true`)
         if (index.fields.length === 1) {
-          const fieldName = index.fields[0];
-          if (model.fields[fieldName as string]?.unique) {
-            // This index is already created by the "UNIQUE" constraint.
-            // Skipping to avoid redundancy.
-            continue;
-          }
+          const f = index.fields[0];
+          if (model?.fields[f as string]?.unique) continue;
         }
 
-        // Create a name for the index
         const indexName = `${tableName}_${index.fields.join("_")}_idx`;
         const indexFields = index.fields.map((f) => `"${f}"`).join(", ");
-
-        // Add the separate CREATE INDEX statement
-        const createIndexSql = `CREATE INDEX "${indexName}" ON "${tableName}" (${indexFields});`;
-        allStatements.push(createIndexSql);
+        allStatements.push(
+          `CREATE INDEX "${indexName}" ON "${tableName}" (${indexFields});`
+        );
       }
     }
   }
 
-  // Join all statements into one giant string
   return allStatements;
 }
 

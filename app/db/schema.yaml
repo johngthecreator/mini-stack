@@ -10,18 +10,46 @@ models:
         type: string
         unique: true
         nullable: false
-        maxLength: 255
       username:
         type: string
         unique: true
         nullable: false
-        maxLength: 50
       password:
         type: string
         nullable: false
       createdAt:
         type: timestamp
         default: now
-    indexes:
-      - fields: [email]
-      - fields: [username]
+
+  Food:
+    table: foods
+    fields:
+      id:
+        type: integer
+        primaryKey: true
+        autoIncrement: true
+      name:
+        type: string
+        nullable: false
+      category:
+        type: string
+        nullable: false
+
+  UserFood:
+    table: user_food
+    primaryKey: [userId, foodId]
+    fields:
+      userId:
+        type: integer
+        nullable: false
+        references:
+          table: users
+          column: id
+          onDelete: CASCADE
+      foodId:
+        type: integer
+        nullable: false
+        references:
+          table: foods
+          column: id
+          onDelete: CASCADE
